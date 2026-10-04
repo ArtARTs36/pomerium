@@ -34,9 +34,15 @@ func CheckHMAC(data, suppliedMAC, key []byte) bool {
 }
 
 // ValidTimestamp is a helper function often used in conjunction with an HMAC
-// function to verify that the timestamp (in unix seconds) is within leeway
-// period.
+// function to verify that the timestamp (in unix seconds) is within the default
+// leeway period.
 func ValidTimestamp(ts string) error {
+	return ValidTimestampWithLeeway(ts, DefaultLeeway)
+}
+
+// ValidTimestampWithLeeway verifies that the timestamp (in unix seconds) is
+// within the provided leeway period.
+func ValidTimestampWithLeeway(ts string, leeway time.Duration) error {
 	var timeStamp int64
 	var err error
 	if timeStamp, err = strconv.ParseInt(ts, 10, 64); err != nil {
@@ -44,10 +50,10 @@ func ValidTimestamp(ts string) error {
 	}
 	// unix time in seconds
 	tm := time.Unix(timeStamp, 0)
-	if time.Since(tm) > DefaultLeeway {
+	if time.Since(tm) > leeway {
 		return errTimestampExpired
 	}
-	if time.Until(tm) > DefaultLeeway {
+	if time.Until(tm) > leeway {
 		return errTimestampTooSoon
 	}
 	return nil

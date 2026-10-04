@@ -461,6 +461,49 @@ func (s testOAuthState) Encode(cc cipher.AEAD) string {
 	return base64.URLEncoding.EncodeToString(b)
 }
 
+func TestAuthenticate_OAuthCallback_CustomFlowTimeout(t *testing.T) {
+	t.Parallel()
+
+	aead, err := chacha20poly1305.NewX(cryptutil.NewKey())
+	require.NoError(t, err)
+	authURL, _ := url.Parse("https://authenticate.pomerium.io")
+	a := testAuthenticate(t)
+	a.cfg = getAuthenticateConfig(WithGetIdentityProvider(func(_ context.Context, _ oteltrace.TracerProvider, _ *config.Options, _ string) (identity.Authenticator, error) {
+		return identity.MockProvider{AuthenticateResponse: oauth2.Token{}}, nil
+	}))
+	csrf := newCSRFCookieValidation(cryptutil.NewKey(), "_csrf", http.SameSiteLaxMode)
+	a.state.Store(&authenticateState{
+		redirectURL:         authURL,
+		sessionHandleWriter: &mstore.Store{},
+		cookieCipher:        aead,
+		csrf:                csrf,
+		flow:                new(stubFlow),
+	})
+	opts := new(config.Options)
+	opts.AuthenticateFlowTimeout = 30 * time.Minute
+	a.options.Store(opts)
+
+	csrfCookie, token := getCSRFCookieAndTokenForTest(t, csrf)
+	encodedState := testOAuthState{
+		Token:       token,
+		Timestamp:   time.Now().Add(-10 * time.Minute).Unix(),
+		RedirectURI: "https://corp.pomerium.io",
+	}.Encode(aead)
+	u, _ := url.Parse("/oauthGet")
+	u.RawQuery = url.Values{
+		"code":  []string{"code"},
+		"state": []string{encodedState},
+	}.Encode()
+
+	r := httptest.NewRequest(http.MethodGet, u.String(), nil)
+	r.AddCookie(csrfCookie)
+	w := httptest.NewRecorder()
+
+	httputil.HandlerFunc(a.OAuthCallback).ServeHTTP(w, r)
+
+	assert.Equal(t, http.StatusFound, w.Result().StatusCode)
+}
+
 func TestAuthenticate_OAuthCallback_CSRF(t *testing.T) {
 	t.Parallel()
 
