@@ -129,8 +129,9 @@ type Options struct {
 
 	// AuthenticateURL represents the externally accessible http endpoints
 	// used for authentication requests and callbacks
-	AuthenticateURLString         string `mapstructure:"authenticate_service_url" yaml:"authenticate_service_url,omitempty"`
-	AuthenticateInternalURLString string `mapstructure:"authenticate_internal_service_url" yaml:"authenticate_internal_service_url,omitempty"`
+	AuthenticateURLString         string        `mapstructure:"authenticate_service_url" yaml:"authenticate_service_url,omitempty"`
+	AuthenticateInternalURLString string        `mapstructure:"authenticate_internal_service_url" yaml:"authenticate_internal_service_url,omitempty"`
+	AuthenticateFlowTimeout      time.Duration `mapstructure:"authenticate_flow_timeout" yaml:"authenticate_flow_timeout,omitempty"`
 	// SignOutRedirectURL represents the url that  user will be redirected to after signing out.
 	SignOutRedirectURLString string `mapstructure:"signout_redirect_url" yaml:"signout_redirect_url,omitempty"`
 
@@ -333,8 +334,9 @@ type GenericKeyVal struct {
 var defaultOptions = Options{
 	LogLevel:               LogLevelInfo,
 	Services:               "all",
-	CookieHTTPOnly:         true,
-	CookieExpire:           14 * time.Hour,
+	CookieHTTPOnly:           true,
+	CookieExpire:             14 * time.Hour,
+	AuthenticateFlowTimeout: 5 * time.Minute,
 	CookieName:             "_pomerium",
 	DefaultUpstreamTimeout: 30 * time.Second,
 	Addr:                   ":443",
@@ -997,6 +999,15 @@ func (o *Options) GetGRPCInsecure() bool {
 		return true
 	}
 	return false
+}
+
+// GetAuthenticateFlowTimeout gets the maximum duration of an interactive
+// authentication flow. It falls back to the default for zero-value Options.
+func (o *Options) GetAuthenticateFlowTimeout() time.Duration {
+	if o == nil || o.AuthenticateFlowTimeout <= 0 {
+		return defaultOptions.AuthenticateFlowTimeout
+	}
+	return o.AuthenticateFlowTimeout
 }
 
 // GetSignOutRedirectURL gets the SignOutRedirectURL.

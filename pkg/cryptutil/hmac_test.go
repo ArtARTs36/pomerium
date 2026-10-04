@@ -68,3 +68,26 @@ func TestValidTimestamp(t *testing.T) {
 		})
 	}
 }
+
+func TestValidTimestampWithLeeway(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now()
+	tests := []struct {
+		name    string
+		ts      string
+		leeway  time.Duration
+		wantErr bool
+	}{
+		{"within custom leeway", fmt.Sprint(now.Add(-10 * time.Minute).Unix()), 30 * time.Minute, false},
+		{"expired with custom leeway", fmt.Sprint(now.Add(-31 * time.Minute).Unix()), 30 * time.Minute, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := ValidTimestampWithLeeway(tt.ts, tt.leeway); (err != nil) != tt.wantErr {
+				t.Errorf("ValidTimestampWithLeeway() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}

@@ -341,7 +341,7 @@ func (a *Authenticate) getOAuthCallback(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// verify that the returned timestamp is valid
-	if err := cryptutil.ValidTimestamp(statePayload[1]); err != nil {
+	if err := cryptutil.ValidTimestampWithLeeway(statePayload[1], options.GetAuthenticateFlowTimeout()); err != nil {
 		return nil, httputil.NewError(http.StatusBadRequest, err).WithDescription(fmt.Sprintf(`
 The request expired. This may be because a login attempt took too long, or because the server's clock is out of sync.
 
